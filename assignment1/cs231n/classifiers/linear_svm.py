@@ -62,21 +62,31 @@ def svm_loss_vectorized(W, X, y, reg):
     """
     loss = 0.0
     dW = np.zeros(W.shape)  # initialize the gradient as zero
+    num_train = X.shape[0]
 
     #############################################################################
     # TODO:                                                                     #
     # Implement a vectorized version of the structured SVM loss, storing the    #
     # result in loss.                                                           #
     #############################################################################
+    # compute all scores as matrix product
     all_scores = np.matmul(X, W)
-    print(all_scores.shape, y.shape)
-    print(all_scores[y].shape)
-
+    # pull aside and reshape correct class (y_i) scores
+    correct_class_scores = all_scores[np.arange(y.shape[0]), y]
+    correct_class_scores.shape = (correct_class_scores.shape[0], 1)
+    # calculate the margins
+    margins = all_scores - correct_class_scores + 1
+    loss_contributions = np.where(margins > 0, 1, 0)
+    # remove the loss contribution for the correct class
+    loss = np.sum(np.where(loss_contributions, margins, 0)) - num_train
+    # change into weighted average rather than naive sum
+    loss /= num_train
+    # add regularization
+    loss += reg * np.sum(W * W)
 
     #############################################################################
     #                             END OF YOUR CODE                              #
     #############################################################################
-
 
     #############################################################################
     # TODO:                                                                     #
@@ -87,7 +97,16 @@ def svm_loss_vectorized(W, X, y, reg):
     # to reuse some of the intermediate values that you used to compute the     #
     # loss.                                                                     #
     #############################################################################
-    pass
+    # calculate how many classes contributed to loss in each training example, subtracting 1 for y_i
+    loss_contributions_by_row = (np.sum(loss_contributions, 1) - 1) * -1
+    augmented_loss_contributions = loss_contributions
+    # replace the value for the correct classes (y_i) with the total number of contributing classes
+    augmented_loss_contributions[np.arange(y.shape[0]), y] = loss_contributions_by_row
+    # calculate gradient as matrix product
+    dW = np.matmul(X.T, loss_contributions) / num_train
+    # add regularization gradient
+    dW += reg * 2 * W
+
     #############################################################################
     #                             END OF YOUR CODE                              #
     #############################################################################
