@@ -33,14 +33,14 @@ def softmax_loss_naive(W, X, y, reg):
     #############################################################################
     for index in range(training_set_size):
         raw_scores = X[index].dot(W)
-        raw_scores -= np.max(raw_scores)
-        class_score = raw_scores[y[index]]
-        shifted_scores = np.exp(raw_scores)
-        # loss += -1 * np.log(shifted_scores[y[index]] / sum(shifted_scores))
-        loss += -1 * class_score + np.log(np.sum(shifted_scores))
+        stable_scores = raw_scores - np.max(raw_scores)
+        class_score = stable_scores[y[index]]
+        exp_scores = np.exp(stable_scores)
+        # loss += -1 * np.log(exp_scores[y[index]] / sum(exp_scores))
+        loss += -1 * class_score + np.log(np.sum(exp_scores))
 
         for j in range(W.shape[1]):
-            dW[:, j] = dW[:, j] + (X[index] * shifted_scores[j] / np.sum(shifted_scores))
+            dW[:, j] = dW[:, j] + (exp_scores[j] / np.sum(exp_scores)) * X[index]
 
         dW[:, y[index]] = dW[:, y[index]] - X[index]
 
@@ -74,14 +74,38 @@ def softmax_loss_vectorized(W, X, y, reg):
     # here, it is easy to run into numeric instability. Don't forget the        #
     # regularization!                                                           #
     #############################################################################
+    # compute all scores in single matrix multiplication
     raw_scores = np.matmul(X, W)
+    # find the by-row maximums, and use them to shift the scores to ensure stability
     row_maxes = raw_scores[np.arange(training_set_size), np.argmax(raw_scores, 1)]
     row_maxes.shape = (training_set_size, 1)
     stable_scores = raw_scores - row_maxes
+    # handle the gradient component for the correct class scores
     loss -= np.sum(stable_scores[np.arange(training_set_size), y])
-    loss += np.sum(np.log(np.sum(np.exp(stable_scores), 1)))
+
+    # exponentiate scores and find the sum by row, to normalize
+    exp_scores = np.exp(stable_scores)
+    row_sums = np.sum(exp_scores, 1)
+    row_sums.shape = (training_set_size, 1)
+
+    # add the sum of the log of the row sums (second component of loss)
+    loss += np.sum(np.log(row_sums))
+    # take as a weighted average
     loss /= training_set_size
+    # add regularization term
     loss += reg * np.sum(W * W)
+
+    # compute all normalized scores as a matrix
+    normalized_scores = exp_scores / row_sums
+    # subtract -1's for correct classes
+    normalized_scores[np.arange(y.shape[0]), y] -= 1
+    # compute gradient as matrix product
+    dW = np.matmul(X.T, normalized_scores)
+
+    # take as weighted average
+    dW /= training_set_size
+    # add regularization gradient
+    dW += reg * 2 * W
 
     #############################################################################
     #                          END OF YOUR CODE                                 #

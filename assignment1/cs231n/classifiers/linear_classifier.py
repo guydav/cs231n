@@ -12,7 +12,7 @@ class LinearClassifier(object):
         self.W = None
 
     def train(self, X, y, learning_rate=1e-3, reg=1e-5, num_iters=100,
-                        batch_size=200, verbose=False):
+                        batch_size=200, verbose=False, min_delta_loss=1e-2):
         """
         Train this linear classifier using stochastic gradient descent.
 
@@ -31,7 +31,7 @@ class LinearClassifier(object):
         A list containing the value of the loss function at each training iteration.
         """
         num_train, dim = X.shape
-        num_classes = np.max(y) + 1 # assume y takes values 0...K-1 where K is number of classes
+        num_classes = np.max(y) + 1  # assume y takes values 0...K-1 where K is number of classes
         if self.W is None:
             # lazily initialize W
             self.W = 0.001 * np.random.randn(dim, num_classes)
@@ -76,6 +76,14 @@ class LinearClassifier(object):
 
             if verbose and it % 100 == 0:
                 print('iteration %d / %d: loss %f' % (it, num_iters, loss))
+
+            if it > 2:
+                delta_loss = abs(loss_history[-1] - loss_history[-2])
+                if delta_loss < min_delta_loss:
+                    print('Stopping on iteration %d since loss stagnates (loss = %f, delta = %f)' %
+                          (it, loss, delta_loss))
+
+                    break
 
         return loss_history
 
