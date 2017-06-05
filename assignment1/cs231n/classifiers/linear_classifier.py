@@ -12,7 +12,7 @@ class LinearClassifier(object):
         self.W = None
 
     def train(self, X, y, learning_rate=1e-3, reg=1e-5, num_iters=100,
-                        batch_size=200, verbose=False, min_delta_loss=1e-2):
+                        batch_size=200, verbose=False, min_delta_loss=5e-3):
         """
         Train this linear classifier using stochastic gradient descent.
 

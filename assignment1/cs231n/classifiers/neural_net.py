@@ -123,9 +123,9 @@ class TwoLayerNet(object):
         # print(h2[np.arange(N), y])
 
         # viewed as L_i = f_y_i + log(sigma_j(e^{f_j}))
-        # loss = -1 * np.sum(y2_stable[np.arange(N), y]) + np.sum(np.log(row_sums))
+        loss = -1 * np.sum(y2_stable[np.arange(N), y]) + np.sum(np.log(row_sums))
         # viewed as L_i = -log(\frac{e^f_y_i}{sigma_j(e^{f_j})})
-        loss = -1 * np.sum(np.log(h2[np.arange(N), y]))
+        # loss = -1 * np.sum(np.log(h2[np.arange(N), y]))
         loss /= N
         loss += reg * np.sum([np.sum(x * x) for x in (W1, b1, W2, b2)])
 
@@ -243,10 +243,15 @@ class TwoLayerNet(object):
                 train_acc = (self.predict(X_batch) == y_batch).mean()
                 val_acc = (self.predict(X_val) == y_val).mean()
                 train_acc_history.append(train_acc)
+                val_acc_diff = len(val_acc_history) and abs(val_acc - val_acc_history[-1]) or 1.0
                 val_acc_history.append(val_acc)
 
                 # Decay learning rate
                 learning_rate *= learning_rate_decay
+
+                if val_acc_diff < 0.005:
+                    print('Validation accuracy stopped improving, stopping')
+                    break
 
         return {
             'loss_history': loss_history,
