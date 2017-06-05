@@ -47,7 +47,10 @@ class TwoLayerNet(object):
         # weights and biases using the keys 'W1' and 'b1' and second layer weights #
         # and biases using the keys 'W2' and 'b2'.                                 #
         ############################################################################
-        pass
+        self.params['W1'] = np.random.normal(scale=weight_scale, size=(input_dim, hidden_dim))
+        self.params['b1'] = np.zeros(hidden_dim, np.float64)
+        self.params['W2'] = np.random.normal(scale=weight_scale, size=(hidden_dim, num_classes))
+        self.params['b2'] = np.zeros(num_classes, np.float64)
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
@@ -77,7 +80,10 @@ class TwoLayerNet(object):
         # TODO: Implement the forward pass for the two-layer net, computing the    #
         # class scores for X and storing them in the scores variable.              #
         ############################################################################
-        pass
+        first_affine_out, first_affine_cache = affine_forward(X, self.params['W1'], self.params['b1'])
+        relu_out, relue_cache = relu_forward(first_affine_out)
+        second_affine_out, second_affine_cache = affine_forward(relu_out, self.params['W2'], self.params['b2'])
+        scores = second_affine_out
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
@@ -97,7 +103,10 @@ class TwoLayerNet(object):
         # automated tests, make sure that your L2 regularization includes a factor #
         # of 0.5 to simplify the expression for the gradient.                      #
         ############################################################################
-        pass
+        loss, softmax_gradient = softmax_loss(scores, y)
+        loss += 0.5 * self.reg * np.sum([np.sum(weights ** 2) for weights in self.params.values()])
+        # TODO: debug why regularization loss is off. Perhaps since I'm computing loss before gradient update?
+        print(loss)
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################

@@ -1,5 +1,6 @@
 from builtins import range
 import numpy as np
+from functools import reduce
 
 
 def affine_forward(x, w, b):
@@ -25,11 +26,13 @@ def affine_forward(x, w, b):
     # TODO: Implement the affine forward pass. Store the result in out. You   #
     # will need to reshape the input into rows.                               #
     ###########################################################################
-    pass
+    x_shape = x.shape
+    x = np.reshape(x, (x_shape[0], np.prod(x_shape[1:])))
+    out = np.matmul(x, w) + b
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
-    cache = (x, w, b)
+    cache = (x, w, b, x_shape)
     return out, cache
 
 
@@ -48,12 +51,15 @@ def affine_backward(dout, cache):
     - dw: Gradient with respect to w, of shape (D, M)
     - db: Gradient with respect to b, of shape (M,)
     """
-    x, w, b = cache
+    x, w, b, x_shape = cache
     dx, dw, db = None, None, None
     ###########################################################################
     # TODO: Implement the affine backward pass.                               #
     ###########################################################################
-    pass
+    dx = np.matmul(dout, w.T)
+    dx = dx.reshape(x_shape)
+    dw = np.matmul(x.T, dout)
+    db = np.sum(dout, 0)
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -75,7 +81,7 @@ def relu_forward(x):
     ###########################################################################
     # TODO: Implement the ReLU forward pass.                                  #
     ###########################################################################
-    pass
+    out = np.maximum(0, x)
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -98,7 +104,7 @@ def relu_backward(dout, cache):
     ###########################################################################
     # TODO: Implement the ReLU backward pass.                                 #
     ###########################################################################
-    pass
+    dx = np.where(x > 0, dout, 0)
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
