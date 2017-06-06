@@ -127,7 +127,8 @@ class TwoLayerNet(object):
         # viewed as L_i = -log(\frac{e^f_y_i}{sigma_j(e^{f_j})})
         # loss = -1 * np.sum(np.log(h2[np.arange(N), y]))
         loss /= N
-        loss += reg * np.sum([np.sum(x * x) for x in (W1, b1, W2, b2)])
+        # loss += reg * np.sum([np.sum(x * x) for x in (W1, b1, W2, b2)])
+        loss += reg * np.sum([np.sum(x * x) for x in (W1, W2)])
 
         #############################################################################
         #                              END OF YOUR CODE                             #

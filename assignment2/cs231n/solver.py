@@ -22,7 +22,7 @@ class Solver(object):
     data to watch out for overfitting.
 
     To train a model, you will first construct a Solver instance, passing the
-    model, dataset, and various optoins (learning rate, batch size, etc) to the
+    model, dataset, and various options (learning rate, batch size, etc) to the
     constructor. You will then call the train() method to run the optimization
     procedure and train the model.
 
@@ -291,16 +291,16 @@ class Solver(object):
                 self.val_acc_history.append(val_acc)
                 self._save_checkpoint()
 
-                if self.verbose:
-                    print('(Epoch %d / %d) train acc: %f; val_acc: %f' % (
-                           self.epoch, self.num_epochs, train_acc, val_acc))
-
                 # Keep track of the best model
                 if val_acc > self.best_val_acc:
                     self.best_val_acc = val_acc
                     self.best_params = {}
                     for k, v in self.model.params.items():
                         self.best_params[k] = v.copy()
+
+                if self.verbose:
+                    print('(Epoch %d / %d) train acc: %f; val_acc: %f; best_val_acc: %f' % (
+                        self.epoch, self.num_epochs, train_acc, val_acc, self.best_val_acc))
 
         # At the end of training swap the best params into the model
         self.model.params = self.best_params
