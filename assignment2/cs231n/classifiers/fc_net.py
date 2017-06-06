@@ -253,10 +253,12 @@ class FullyConnectedNet(object):
 
             relu_out, relu_cache = relu_forward(affine_out)
             caches['relu'].append(relu_cache)
-
-            # TODO: dropout goes here
-
             current_input = relu_out
+
+            if self.use_dropout:
+                dropout_out, dropout_cache = dropout_forward(relu_out, self.dropout_param)
+                caches['dropout'].append(dropout_cache)
+                current_input = dropout_out
 
         last_weight_key = 'W{nl}'.format(nl=self.num_layers)
         last_bias_key = 'b{nl}'.format(nl=self.num_layers)
@@ -294,9 +296,14 @@ class FullyConnectedNet(object):
 
         current_grad = last_affine_grad
         for i in reversed(range(1, self.num_layers)):
-            relu_grad = relu_backward(current_grad, caches['relu'].pop())
+            if self.use_dropout:
+                current_grad = dropout_backward(current_grad, caches['dropout'].pop())
+
+            current_grad = relu_backward(current_grad, caches['relu'].pop())
+
+            # TODO: batchnorm gradients come here
             current_grad, grads['W{i}'.format(i=i)], grads['b{i}'.format(i=i)] = \
-                affine_backward(relu_grad, caches['affine'].pop())
+                affine_backward(current_grad, caches['affine'].pop())
 
         if self.reg:
             for key in self.params:
