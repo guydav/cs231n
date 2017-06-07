@@ -137,7 +137,7 @@ def batchnorm_forward(x, gamma, beta, bn_param):
     Input:
     - x: Data of shape (N, D)
     - gamma: Scale parameter of shape (D,)
-    - beta: Shift paremeter of shape (D,)
+    - beta: Shift parameter of shape (D,)
     - bn_param: Dictionary with the following keys:
       - mode: 'train' or 'test'; required
       - eps: Constant for numeric stability
@@ -174,7 +174,17 @@ def batchnorm_forward(x, gamma, beta, bn_param):
         # variance, storing your result in the running_mean and running_var   #
         # variables.                                                          #
         #######################################################################
-        pass
+        sample_mean = np.mean(x, 0, keepdims=True)
+        sample_var = np.var(x, 0, keepdims=True)
+
+        running_mean = momentum * running_mean + (1 - momentum) * sample_mean
+        running_var = momentum * running_var + (1 - momentum) * sample_var
+
+        x_hat = (x - sample_mean) / np.sqrt(sample_var + eps)
+        out = gamma * x_hat + beta
+
+        cache = x, sample_mean, sample_var, x_hat, gamma, beta, eps
+
         #######################################################################
         #                           END OF YOUR CODE                          #
         #######################################################################
@@ -185,7 +195,8 @@ def batchnorm_forward(x, gamma, beta, bn_param):
         # then scale and shift the normalized data using gamma and beta.      #
         # Store the result in the out variable.                               #
         #######################################################################
-        pass
+        x_hat = (x - running_mean) / (np.sqrt(running_var) + eps)
+        out = gamma * x_hat + beta
         #######################################################################
         #                          END OF YOUR CODE                           #
         #######################################################################
@@ -197,6 +208,27 @@ def batchnorm_forward(x, gamma, beta, bn_param):
     bn_param['running_var'] = running_var
 
     return out, cache
+
+"""
+mu = 1. / N * np.sum(x, axis=0)
+# step2: subtract mean vector of every trainings example
+xmu = x - mu
+# step3: following the lower branch - calculation denominator
+sq = xmu ** 2
+# step4: calculate variance
+var = 1. / N * np.sum(sq, axis=0)
+# step5: add eps for numerical stability, then sqrt
+sqrtvar = np.sqrt(var + eps)
+# step6: invert sqrtwar
+ivar = 1. / sqrtvar
+# step7: execute normalization
+xhat = xmu * ivar
+# step8: Nor the two transformation steps
+gammax = gamma * xhat
+# step9
+alt_out = gammax + beta
+cache = (cache, (xhat, gamma, xmu, ivar, sqrtvar, var, eps))
+"""
 
 
 def batchnorm_backward(dout, cache):
@@ -217,16 +249,102 @@ def batchnorm_backward(dout, cache):
     - dbeta: Gradient with respect to shift parameter beta, of shape (D,)
     """
     dx, dgamma, dbeta = None, None, None
+    x, sample_mean, sample_var, x_hat, gamma, beta, eps = cache
+
+    N, D = x.shape
+
     ###########################################################################
     # TODO: Implement the backward pass for batch normalization. Store the    #
     # results in the dx, dgamma, and dbeta variables.                         #
     ###########################################################################
-    pass
+    dbeta = np.sum(dout, 0)  # dbeta = sum of each column
+    dgamma = np.sum(x_hat * dout, 0)  # dgamma = sum of each column of element-wise product
+    dx_hat = dout * gamma
+    dnumerator = dx_hat / np.sqrt(sample_var + eps)
+    ddenominator = np.sum(dx_hat * (x - sample_mean), 0)
+
+    dvariance = ddenominator * (-0.5) * ((sample_var + eps) ** (-1.5))
+    # dvariancesqrt = -1.0 / (sample_var + eps) * ddenominator
+    # dvariance = 0.5 / np.sqrt(sample_var + eps) * dvariancesqrt
+
+    dvariance_sum = dvariance / N
+    dvariance_square = dvariance_sum * 2 * (x - sample_mean)
+
+    dx_minus_xbar_in = (dnumerator + dvariance_square)
+    dxbar = -1 * np.sum(dx_minus_xbar_in, 0)
+    dxbar_summation = dxbar / N
+    dx = dx_minus_xbar_in + dxbar_summation
+
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
-
     return dx, dgamma, dbeta
+
+"""
+my_cache, other_cache = cache
+x, sample_mean, sample_var, x_hat, gamma, beta, eps = my_cache
+
+...
+
+old_dx = dx
+
+xhat, gamma, xmu, ivar, sqrtvar, var, eps = other_cache
+# get the dimensions of the input/output
+N, D = dout.shape
+# step9
+dbeta = np.sum(dout, axis=0)
+dgammax = dout  # not necessary, but more understandable
+# step8
+dgamma = np.sum(dgammax * xhat, axis=0)
+dxhat = dgammax * gamma
+# step7
+divar = np.sum(dxhat * xmu, axis=0)
+dxmu1 = dxhat * ivar
+# step6
+dsqrtvar = -1. / (sqrtvar ** 2) * divar
+# step5
+dvar = 0.5 * 1. / np.sqrt(var + eps) * dsqrtvar
+# step4
+dsq = 1. / N * np.ones((N, D)) * dvar
+# step3
+dxmu2 = 2 * xmu * dsq
+# step2
+dx1 = (dxmu1 + dxmu2)
+# print('{:#^60}'.format(' denumerator '))
+# print(dnumerator)
+# print()
+# print('{:#^60}'.format(' dxmu1 '))
+# print(dxmu1)
+# print()
+# print(dxmu1 - dnumerator)
+# print()
+# print('{:#^60}'.format(' dvariance_square '))
+# print(dvariance_square)
+# print()
+# print('{:#^60}'.format(' dxmu2 '))
+# print(dxmu2)
+# print()
+# print(dxmu2 - dvariance_square)
+# print()
+# print('{:#^60}'.format(' dx_minus_xbar_in '))
+# print(dx_minus_xbar_in)
+# print()
+# print('{:#^60}'.format(' dx1 '))
+# print(dx1)
+# print()
+print(dx1 - dx_minus_xbar_in)
+# print()
+
+dmu = -1 * np.sum(dxmu1 + dxmu2, axis=0)
+# step1
+dx2 = 1. / N * np.ones((N, D)) * dmu
+# step0
+dx = dx1 + dx2
+print()
+print(old_dx - dx)
+
+"""
+
 
 
 def batchnorm_backward_alt(dout, cache):
@@ -243,6 +361,8 @@ def batchnorm_backward_alt(dout, cache):
     Inputs / outputs: Same as batchnorm_backward
     """
     dx, dgamma, dbeta = None, None, None
+    x, sample_mean, sample_var, x_hat, gamma, beta, eps = cache
+    N, D = x.shape
     ###########################################################################
     # TODO: Implement the backward pass for batch normalization. Store the    #
     # results in the dx, dgamma, and dbeta variables.                         #
@@ -251,7 +371,12 @@ def batchnorm_backward_alt(dout, cache):
     # should be able to compute gradients with respect to the inputs in a     #
     # single statement; our implementation fits on a single 80-character line.#
     ###########################################################################
-    pass
+    dbeta = np.sum(dout, 0)  # dbeta = sum of each column
+    dgamma = np.sum(x_hat * dout, 0)  # dgamma = sum of each column of element-wise product
+
+    # TODO: כןס איןד שא דםצק פםןמא
+
+    dx = dout * gamma / N * ((sample_var + eps) ** (-0.5)) * (N - 1 - ((x - sample_mean) ** 2 / (sample_var + eps)))
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################

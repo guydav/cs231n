@@ -185,6 +185,9 @@ class FullyConnectedNet(object):
             self.params['W{i}'.format(i=i)] = \
                 np.random.normal(scale=weight_scale, size=(input_size, output_size))
             self.params['b{i}'.format(i=i)] = np.zeros(output_size, np.float64)
+            if self.use_batchnorm and i != len(all_lengths) - 1:  # No batch norm after last layer
+                self.params['gamma{i}'.format(i=i)] = np.ones(output_size, np.float64)
+                self.params['beta{i}'.format(i=i)] = np.zeros(output_size, np.float64)
 
         ############################################################################
         #                             END OF YOUR CODE                             #
@@ -245,20 +248,22 @@ class FullyConnectedNet(object):
         caches = defaultdict(list)
         current_input = X
         for i in range(1, self.num_layers):
-            affine_out, affine_cache = affine_forward(current_input, self.params['W{i}'.format(i=i)],
-                                                      self.params['b{i}'.format(i=i)])
+            current_input, affine_cache = affine_forward(current_input, self.params['W{i}'.format(i=i)],
+                                                         self.params['b{i}'.format(i=i)])
             caches['affine'].append(affine_cache)
 
-            # TODO: batch norm goes here
+            if self.use_batchnorm:
+                current_input, batch_norm_cache = \
+                    batchnorm_forward(current_input, self.params['gamma{i}'.format(i=i)],
+                                      self.params['beta{i}'.format(i=i)], self.bn_params[i - 1])
+                caches['batch_norm'].append(batch_norm_cache)
 
-            relu_out, relu_cache = relu_forward(affine_out)
+            current_input, relu_cache = relu_forward(current_input)
             caches['relu'].append(relu_cache)
-            current_input = relu_out
 
             if self.use_dropout:
-                dropout_out, dropout_cache = dropout_forward(relu_out, self.dropout_param)
+                current_input, dropout_cache = dropout_forward(current_input, self.dropout_param)
                 caches['dropout'].append(dropout_cache)
-                current_input = dropout_out
 
         last_weight_key = 'W{nl}'.format(nl=self.num_layers)
         last_bias_key = 'b{nl}'.format(nl=self.num_layers)
@@ -301,7 +306,10 @@ class FullyConnectedNet(object):
 
             current_grad = relu_backward(current_grad, caches['relu'].pop())
 
-            # TODO: batchnorm gradients come here
+            if self.use_batchnorm:
+                current_grad, grads['gamma{i}'.format(i=i)], grads['beta{i}'.format(i=i)] = \
+                    batchnorm_backward(current_grad, caches['batch_norm'].pop())
+
             current_grad, grads['W{i}'.format(i=i)], grads['b{i}'.format(i=i)] = \
                 affine_backward(current_grad, caches['affine'].pop())
 
