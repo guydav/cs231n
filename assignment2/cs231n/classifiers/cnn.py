@@ -38,6 +38,7 @@ class ThreeLayerConvNet(object):
         self.reg = reg
         self.dtype = dtype
 
+        C, H, W = input_dim
         ############################################################################
         # TODO: Initialize weights and biases for the three-layer convolutional    #
         # network. Weights should be initialized from a Gaussian with standard     #
@@ -48,14 +49,24 @@ class ThreeLayerConvNet(object):
         # hidden affine layer, and keys 'W3' and 'b3' for the weights and biases   #
         # of the output affine layer.                                              #
         ############################################################################
-        pass
+        stride = 1
+        pad = (filter_size - 1) // 2
+        self.params['W1'] = np.random.normal(scale=weight_scale, size=(num_filters, C, filter_size, filter_size))
+        self.params['b1'] = np.zeros(num_filters, dtype)
+        first_layer_output_size = num_filters * \
+                                  (1 + (H + 2 * pad - filter_size) / stride) * \
+                                  (1 + (W + 2 * pad - filter_size) / stride)
+        first_layer_output_size /= 4  # max pool
+        self.params['W2'] = np.random.normal(scale=weight_scale, size=(int(first_layer_output_size), hidden_dim))
+        self.params['b2'] = np.zeros(hidden_dim, dtype)
+        self.params['W3'] = np.random.normal(scale=weight_scale, size=(hidden_dim, num_classes))
+        self.params['b3'] = np.zeros(num_classes, np.float64)
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
 
         for k, v in self.params.items():
             self.params[k] = v.astype(dtype)
-
 
     def loss(self, X, y=None):
         """
@@ -80,7 +91,14 @@ class ThreeLayerConvNet(object):
         # computing the class scores for X and storing them in the scores          #
         # variable.                                                                #
         ############################################################################
-        pass
+        conv_out, conv_cache = conv_forward_fast(X, W1, b1, conv_param)
+        relu_out, relu_cache = relu_forward(conv_out)
+        max_pool_out, max_pool_cache = max_pool_forward_fast(relu_out, pool_param)
+
+        first_affine_out, first_affine_cache = affine_forward(max_pool_out, W2, b2)
+        affine_relu_out, affine_relu_cache = relu_forward(first_affine_out)
+        second_affine_out, second_affine_cache = affine_forward(affine_relu_out, W3, b3)
+        scores = second_affine_out
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
@@ -95,7 +113,19 @@ class ThreeLayerConvNet(object):
         # data loss using softmax, and make sure that grads[k] holds the gradients #
         # for self.params[k]. Don't forget to add L2 regularization!               #
         ############################################################################
-        pass
+        loss, softmax_gradient = softmax_loss(scores, y)
+        loss += 0.5 * self.reg * np.sum([np.sum(x * x) for x in (W1, W2, W3)])
+
+        second_affine_grad, grads['W3'], grads['b3'] = affine_backward(softmax_gradient, second_affine_cache)
+        grads['W3'] += self.reg * self.params['W3']
+        affine_relu_grad = relu_backward(second_affine_grad, affine_relu_cache)
+        first_affine_grad, grads['W2'], grads['b2'] = affine_backward(affine_relu_grad, first_affine_cache)
+        grads['W2'] += self.reg * self.params['W2']
+
+        max_pool_grad = max_pool_backward_fast(first_affine_grad, max_pool_cache)
+        relu_grad = relu_backward(max_pool_grad, relu_cache)
+        _, grads['W1'], grads['b1'] = conv_backward_fast(relu_grad, conv_cache)
+        grads['W1'] += self.reg * self.params['W1']
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
