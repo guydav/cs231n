@@ -652,8 +652,7 @@ def spatial_batchnorm_forward(x, gamma, beta, bn_param):
     """
     N, C, H, W = x.shape
 
-    out, cache = np.zeros_like(x), []
-
+    out, cache, channel_caches = np.zeros_like(x), None, []
     ###########################################################################
     # TODO: Implement the forward pass for spatial batch normalization.       #
     #                                                                         #
@@ -661,11 +660,25 @@ def spatial_batchnorm_forward(x, gamma, beta, bn_param):
     # version of batch normalization defined above. Your implementation should#
     # be very short; ours is less than five lines.                            #
     ###########################################################################
-    for channel in range(C):
-        channel_slice = x[:, channel, :, :].copy()
-        channel_slice = np.reshape(channel_slice, (N, H * W))
-        out[:, channel, :, :], channel_cache = batchnorm_forward(channel_slice, gamma, beta, bn_param)
-        cache.append(channel_cache)
+    # gamma.shape = (gamma.shape[0], 1)
+    # beta.shape = (beta.shape[0], 1)
+    out, bn_cache = batchnorm_forward(x.transpose((0, 2, 3, 1)).reshape((N * H * W, C)),
+                                   gamma,
+                                   beta,
+                                   bn_param)
+    out = out.reshape((N, H, W, C)).transpose(0, 3, 1, 2)
+    cache = (x, gamma, beta, bn_cache)
+
+    # for channel in range(C):
+    #     channel_slice = np.reshape(x[:, channel, :, :].copy(), (N, H * W))
+    #     channel_out, channel_cache = batchnorm_forward(channel_slice,
+    #                                                    np.ones_like(channel_slice),
+    #                                                    np.zeros_like(channel_slice),
+    #                                                    bn_param)
+    #     channel_caches.append((channel_out, channel_cache))
+    #     out[:, channel, :, :] = np.reshape(channel_out * gamma[channel] + beta[channel], (N, H, W))
+    #
+    # cache = (x, gamma, beta, channel_caches)
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -686,8 +699,10 @@ def spatial_batchnorm_backward(dout, cache):
     - dgamma: Gradient with respect to scale parameter, of shape (C,)
     - dbeta: Gradient with respect to shift parameter, of shape (C,)
     """
-    dx, dgamma, dbeta = None, None, None
+    x, gamma, beta, bn_cache = cache
+    # dx, dgamma, dbeta = np.zeros_like(x), np.zeros_like(gamma), np.zeros_like(beta)
 
+    N, C, H, W = x.shape
     ###########################################################################
     # TODO: Implement the backward pass for spatial batch normalization.      #
     #                                                                         #
@@ -695,7 +710,24 @@ def spatial_batchnorm_backward(dout, cache):
     # version of batch normalization defined above. Your implementation should#
     # be very short; ours is less than five lines.                            #
     ###########################################################################
-    pass
+
+    # dgamma.shape = (gamma.shape[0], 1)
+    # dbeta.shape = (beta.shape[0], 1)
+    dx, dgamma, dbeta = batchnorm_backward(dout.transpose((0, 2, 3, 1)).reshape((N * H * W, C)), bn_cache)
+    dx = dx.reshape((N, H, W, C)).transpose(0, 3, 1, 2)
+
+    # dbeta = np.sum(dout, (0, 2, 3))
+    # dgamma = np.sum(dout * x, (0, 2, 3))
+    #
+    # for channel in range(C):
+    #     channel_out, channel_cache = channel_caches[channel]
+    #
+    #     channel_slice = np.reshape(x[:, channel, :, :].copy(), (N, H * W))
+    #     dout_channel_slice = np.reshape(dout[:, channel, :, :].copy(), (N, H * W)) * gamma[channel]
+    #
+    #     dchannel_slice, _, _ = batchnorm_backward(dout_channel_slice, channel_cache)
+    #     dx[:, channel, :, :] = np.reshape(dchannel_slice, (N, H, W))
+
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
